@@ -10,6 +10,7 @@ patches, and running commands) behind explicit permissions.
 
 - Interactive session with conversation history while the process is running.
 - Local SQLite persistence for sessions and messages.
+- Read-only workspace inspection with Git and validation command detection.
 - Providers compatible with the OpenAI chat API (OpenRouter, Groq, Together,
   Cerebras, and local servers such as Ollama).
 - Credentials loaded from environment variables or a local `.env` file.
@@ -104,6 +105,21 @@ List configured providers:
 fiaca providers
 ```
 
+## Inspect a workspace
+
+Run these commands from a project directory:
+
+```bash
+fiaca inspect
+fiaca doctor
+```
+
+`fiaca inspect` reports the current directory, Git branch, modified files,
+recognized project files, and likely validation commands. `fiaca doctor` gives
+the same workspace checks without printing the full Git status. These commands
+are read-only: they do not execute the detected validation commands or modify
+files.
+
 ## Saved sessions and search
 
 Fiaca stores local sessions in `~/.fiaca/sessions.db`:
@@ -120,7 +136,8 @@ common message structure is documented in
 
 ## Next direction
 
-The next increment should be agent mode, not more provider options:
+The next increment should be read-only file tools and agent mode, not more
+provider options:
 
 1. select an explicit working directory;
 2. provide limited tools to list and read files;

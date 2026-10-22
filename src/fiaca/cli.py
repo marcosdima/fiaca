@@ -5,6 +5,7 @@ import os
 from .config import load_config, save_config
 from .providers import get_provider, provider_names
 from .storage import SessionStore
+from .workspace import inspect_workspace
 
 
 def _chat(provider_name: str | None, model: str | None, prompt: str | None) -> None:
@@ -51,6 +52,8 @@ def main() -> None:
     chat_p.add_argument("--model", help="Model identifier")
 
     sub.add_parser("providers", help="List configured providers")
+    sub.add_parser("inspect", help="Inspect the current workspace")
+    sub.add_parser("doctor", help="Check workspace and project validation details")
     sub.add_parser("sessions", help="List saved chat sessions")
     history_p = sub.add_parser("history", help="Show messages from a saved session")
     history_p.add_argument("session_id")
@@ -78,6 +81,20 @@ def main() -> None:
     elif args.command == "providers":
         names = provider_names()
         print("\n".join(names) if names else "No providers configured.")
+    elif args.command in {"inspect", "doctor"}:
+        report = inspect_workspace()
+        print(f"Workspace: {report.root}")
+        print(f"Git branch: {report.git_branch or 'not a Git repository'}")
+        print(f"Project files: {', '.join(report.project_files) or 'none detected'}")
+        print(f"Modified files: {len(report.git_status)}")
+        if args.command == "inspect" and report.git_status:
+            print("\nGit status:")
+            print("\n".join(report.git_status))
+        print("\nValidation commands:")
+        if report.validation_commands:
+            print("\n".join(f"- {command}" for command in report.validation_commands))
+        else:
+            print("No validation commands detected.")
     elif args.command == "sessions":
         with SessionStore() as store:
             for session in store.list_sessions():
