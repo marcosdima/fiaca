@@ -10,15 +10,41 @@ from .ui import run_ui
 from .workspace import inspect_workspace, list_files, read_file, search_files
 
 
-def _chat(provider_name: str | None, model: str | None, prompt: str | None) -> None:
+def _chat(
+    provider_name: str | None,
+    model: str | None,
+    prompt: str | None,
+    session_id: str | None = None,
+) -> None:
+    if session_id and not provider_name:
+        with SessionStore() as store:
+            session = store.get_session(session_id)
+        if session is None:
+            raise ValueError(f"Session not found: {session_id}")
+        provider_name = session["provider"]
+        model = model or session["model"]
     provider = get_provider(provider_name)
     workspace = os.getcwd()
     with SessionStore() as store:
-        session_id = store.create_session(
-            workspace, provider.name, model or provider.default_model, prompt or "Interactive chat"
-        )
-        print(f"Session: {session_id}")
-        messages: list[dict[str, str]] = []
+        if session_id:
+            session = store.get_session(session_id)
+            if session is None:
+                raise ValueError(f"Session not found: {session_id}")
+            messages = [
+                {"role": message["role"], "content": message["content"]}
+                for message in store.get_messages(session_id)
+                if message["role"] in {"user", "assistant"}
+            ]
+            print(f"Resuming session: {session_id}")
+        else:
+            session_id = store.create_session(
+                workspace,
+                provider.name,
+                model or provider.default_model,
+                prompt or "Interactive chat",
+            )
+            messages = []
+            print(f"Session: {session_id}")
         if prompt:
             messages.append({"role": "user", "content": prompt})
             store.add_message(session_id, "user", prompt)
@@ -52,6 +78,7 @@ def main() -> None:
     chat_p.add_argument("message", nargs="*", help="Message to send, or omit for interactive mode")
     chat_p.add_argument("--provider", help="Configured provider name")
     chat_p.add_argument("--model", help="Model identifier")
+    chat_p.add_argument("--session", help="Resume a saved session")
 
     sub.add_parser("providers", help="List configured providers")
     sub.add_parser("ui", help="Open the interactive terminal dashboard")
@@ -79,7 +106,7 @@ def main() -> None:
 
     if args.command == "chat":
         try:
-            _chat(args.provider, args.model, " ".join(args.message) or None)
+            _chat(args.provider, args.model, " ".join(args.message) or None, args.session)
         except httpx.HTTPStatusError as error:
             detail = error.response.text.strip()
             message = f"Provider request failed ({error.response.status_code})"

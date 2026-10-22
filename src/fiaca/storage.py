@@ -128,6 +128,16 @@ class SessionStore:
         )
         return list(cursor.fetchall())
 
+    def get_session(self, session_id: str) -> sqlite3.Row | None:
+        cursor = self.connection.execute(
+            """
+            SELECT id, title, workspace, provider, model, created_at, updated_at
+            FROM sessions WHERE id = ?
+            """,
+            (session_id,),
+        )
+        return cursor.fetchone()
+
     def search(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
         cursor = self.connection.execute(
             """

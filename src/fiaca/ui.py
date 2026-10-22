@@ -74,7 +74,9 @@ def _search() -> None:
     console.print(table)
 
 
-def _sessions() -> None:
+def _sessions(
+    chat_handler: Callable[[str | None, str | None, str | None, str | None], None],
+) -> None:
     with SessionStore() as store:
         sessions = store.list_sessions()
     if not sessions:
@@ -90,10 +92,30 @@ def _sessions() -> None:
             session["id"], session["updated_at"], session["provider"], session["title"]
         )
     console.print(table)
+    session_id = console.input(
+        "\nEnter a session ID to open, or press Enter to return: "
+    ).strip()
+    if not session_id:
+        return
+    with SessionStore() as store:
+        session = store.get_session(session_id)
+        messages = store.get_messages(session_id) if session else []
+    if session is None:
+        raise ValueError(f"Session not found: {session_id}")
+    history = "\n\n".join(
+        f"[{message['role']}] {message['content']}" for message in messages
+    )
+    console.print(Panel(history or "No messages in this session.", title=session["title"]))
+    action = console.input("\n[c] Continue  [b] Back: ").strip().lower()
+    if action == "c":
+        chat_handler(session["provider"], session["model"], None, session_id)
 
 
 def run_ui(
-    chat_handler: Callable[[str | None, str | None, str | None], None] | None = None,
+    chat_handler: Callable[
+        [str | None, str | None, str | None, str | None], None
+    ]
+    | None = None,
 ) -> None:
     """Run the interactive terminal dashboard."""
     while True:
@@ -130,14 +152,14 @@ def run_ui(
                 _search()
                 console.input("\nPress Enter to return...")
             elif choice == "5":
-                _sessions()
+                _sessions(chat_handler)
                 console.input("\nPress Enter to return...")
             elif choice == "6":
                 if chat_handler is None:
                     console.print("[yellow]Chat is not available in this UI context.[/yellow]")
                     console.input("\nPress Enter to return...")
                 else:
-                    chat_handler(None, None, None)
+                    chat_handler(None, None, None, None)
             elif choice in {"q", "quit", "exit"}:
                 return
         except (OSError, ValueError) as error:
