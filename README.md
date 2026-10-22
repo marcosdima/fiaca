@@ -66,11 +66,12 @@ precedence over values from `.env`.
    fiaca chat
    ```
 
-   Interactive chat accepts multiline input. Press `Enter` for a new line and
-   `Ctrl-S` to send the message. `Ctrl-C` cancels the current draft, and
-   `/exit` or `Ctrl-D` leaves the session. This makes it possible to paste
-   prompts, code, errors, and structured requests without fighting the
-   terminal.
+   Interactive chat accepts multiline input. Press `Enter` to send the message
+   and `Alt-Enter` to add a new line. `Ctrl-S` remains available as a fallback
+   on terminals that pass it through, but some terminals reserve it for flow
+   control. `Ctrl-C` cancels the current draft, and `/exit` or `Ctrl-D` leaves
+   the session. This makes it possible to paste prompts, code, errors, and
+   structured requests without fighting the terminal.
 
    Or send a one-off prompt:
 

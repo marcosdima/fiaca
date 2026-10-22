@@ -16,16 +16,27 @@ _style = Style.from_dict(
 def create_prompt_session() -> PromptSession[str]:
     bindings = KeyBindings()
 
-    @bindings.add("c-s")
+    @bindings.add("enter")
     def submit(event: KeyPressEvent) -> None:
         event.current_buffer.validate_and_handle()
+
+    @bindings.add("c-s")
+    def submit_with_control_s(event: KeyPressEvent) -> None:
+        event.current_buffer.validate_and_handle()
+
+    @bindings.add("escape", "enter")
+    def insert_newline(event: KeyPressEvent) -> None:
+        event.current_buffer.insert_text("\n")
 
     return PromptSession(
         multiline=True,
         key_bindings=bindings,
         style=_style,
         prompt_continuation="... ",
-        bottom_toolbar="Enter: new line  |  Ctrl-S: send  |  Ctrl-C: cancel  |  /exit: quit",
+        bottom_toolbar=(
+            "Enter: send  |  Alt-Enter: new line  |  "
+            "Ctrl-C: cancel  |  /exit: quit"
+        ),
     )
 
 
