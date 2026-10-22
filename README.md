@@ -12,6 +12,7 @@ patches, and running commands) behind explicit permissions.
 - Local SQLite persistence for sessions and messages.
 - Read-only workspace inspection with Git and validation command detection.
 - Interactive terminal dashboard for inspecting the current project.
+- Paste-friendly multiline chat input with an explicit submit shortcut.
 - Providers compatible with the OpenAI chat API (OpenRouter, Groq, Together,
   Cerebras, and local servers such as Ollama).
 - Credentials loaded from environment variables or a local `.env` file.
@@ -64,6 +65,12 @@ precedence over values from `.env`.
    ```bash
    fiaca chat
    ```
+
+   Interactive chat accepts multiline input. Press `Enter` for a new line and
+   `Ctrl-S` to send the message. `Ctrl-C` cancels the current draft, and
+   `/exit` or `Ctrl-D` leaves the session. This makes it possible to paste
+   prompts, code, errors, and structured requests without fighting the
+   terminal.
 
    Or send a one-off prompt:
 

@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from .config import load_config, save_config
+from .input import create_prompt_session, read_message
 from .providers import get_provider, provider_names
 from .storage import SessionStore
 from .ui import run_ui
@@ -50,13 +51,13 @@ def _chat(
             store.add_message(session_id, "user", prompt)
         else:
             print(f"Connected to {provider.name}. Type /exit to quit.")
+        prompt_session = create_prompt_session()
         while True:
             if not prompt:
-                try:
-                    prompt = input("\nyou> ").strip()
-                except (EOFError, KeyboardInterrupt):
+                prompt = read_message(prompt_session)
+                if prompt is None:
                     print()
-                    return
+                    continue
             if prompt in {"/exit", "/quit"}:
                 return
             if prompt:
