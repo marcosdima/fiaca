@@ -14,6 +14,7 @@ patches, and running commands) behind explicit permissions.
 - Interactive terminal dashboard for inspecting the current project.
 - Paste-friendly multiline chat input with an explicit submit shortcut.
 - Rich Markdown rendering for assistant responses and Markdown documents.
+- Read-only tasks that send selected workspace context to the provider.
 - Providers compatible with the OpenAI chat API (OpenRouter, Groq, Together,
   Cerebras, and local servers such as Ollama).
 - Credentials loaded from environment variables or a local `.env` file.
@@ -185,6 +186,29 @@ fiaca search "provider authentication"
 The database contains messages and action records, but never API keys. The
 common message structure is documented in
 [`docs/MESSAGE_PATTERN.md`](docs/MESSAGE_PATTERN.md).
+
+## Read-only tasks
+
+Ask Fiaca to analyze the current workspace with real file context:
+
+```bash
+fiaca task \
+  --file src/fiaca/ui.py \
+  --file docs/MESSAGE_PATTERN.md \
+  "Read the current terminal UI and propose a visual direction."
+```
+
+Without `--file`, Fiaca includes the main project files that are available.
+Before contacting the provider, it shows the selected files and asks for
+approval. Use `--yes` only when that approval is intentional:
+
+```bash
+fiaca task --yes "Explain the current project architecture."
+```
+
+Tasks are read-only. Fiaca does not modify files or execute commands. The task,
+selected context, and provider response are stored in the local session
+database. The dashboard exposes the same flow as `[7] New read-only task`.
 
 ## Next direction
 

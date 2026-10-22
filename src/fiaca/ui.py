@@ -115,11 +115,18 @@ def _sessions(
         chat_handler(session["provider"], session["model"], None, session_id)
 
 
+def _task(task_handler: Callable[[str], None]) -> None:
+    task = console.input("Task (or blank to cancel): ").strip()
+    if task:
+        task_handler(task)
+
+
 def run_ui(
     chat_handler: Callable[
         [str | None, str | None, str | None, str | None], None
     ]
     | None = None,
+    task_handler: Callable[[str], None] | None = None,
 ) -> None:
     """Run the interactive terminal dashboard."""
     while True:
@@ -134,6 +141,7 @@ def run_ui(
                 Text(
                     "[1] Inspect workspace   [2] List files   [3] Read file\n"
                     "[4] Search files        [5] Sessions      [6] Chat\n"
+                    "[7] New read-only task\n"
                     "[r] Refresh             [q] Quit"
                 ),
                 title="Actions",
@@ -164,6 +172,12 @@ def run_ui(
                     console.input("\nPress Enter to return...")
                 else:
                     chat_handler(None, None, None, None)
+            elif choice == "7":
+                if task_handler is None:
+                    console.print("[yellow]Tasks are not available in this UI context.[/yellow]")
+                    console.input("\nPress Enter to return...")
+                else:
+                    _task(task_handler)
             elif choice in {"q", "quit", "exit"}:
                 return
         except (OSError, ValueError) as error:

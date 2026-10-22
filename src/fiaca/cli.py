@@ -2,9 +2,11 @@ import argparse
 import httpx
 import os
 import sys
+import json
 from pathlib import Path
 
 from .config import load_config, save_config
+from .context import build_context
 from .input import create_prompt_session, read_message
 from .providers import get_provider, provider_names
 from .rendering import print_markdown
@@ -87,6 +89,44 @@ def _chat(
             prompt = None
 
 
+def _task(
+    provider_name: str | None,
+    model: str | None,
+    task: str,
+    selected_files: list[str] | None,
+    approved: bool = False,
+) -> None:
+    provider = get_provider(provider_name)
+    context = build_context(Path.cwd(), task, selected_files)
+    print("Read-only task")
+    print(f"Workspace: {context.workspace}")
+    print("Selected files:")
+    for path in context.file_names:
+        print(f"  - {path}")
+    if not approved and input("Send this context to the provider? [y/N] ").lower() != "y":
+        print("Task cancelled.")
+        return
+    with SessionStore() as store:
+        session_id = store.create_session(
+            str(context.workspace), provider.name, model or provider.default_model, task
+        )
+        details = json.dumps({"task": task, "files": context.file_names, "mode": "read-only"})
+        store.add_action(session_id, "context_built", details)
+        store.add_message(session_id, "user", task)
+        print(f"Session: {session_id}\nSending...")
+        try:
+            answer = provider.complete(
+                [{"role": "user", "content": context.as_prompt(task)}], model=model
+            )
+        except httpx.TimeoutException as error:
+            raise ValueError("The provider request timed out. The session was saved.") from error
+        except httpx.RequestError as error:
+            raise ValueError(f"Provider connection failed: {error}") from error
+        store.add_message(session_id, "assistant", answer)
+    print()
+    print_markdown(answer, title="ai")
+
+
 def main() -> None:
     """Run the provider-neutral terminal client."""
     parser = argparse.ArgumentParser(prog="fiaca")
@@ -97,6 +137,12 @@ def main() -> None:
     chat_p.add_argument("--provider", help="Configured provider name")
     chat_p.add_argument("--model", help="Model identifier")
     chat_p.add_argument("--session", help="Resume a saved session")
+    task_p = sub.add_parser("task", help="Run a read-only task with workspace context")
+    task_p.add_argument("message", nargs="+", help="Task to send to the AI")
+    task_p.add_argument("--file", action="append", dest="files", help="File to include")
+    task_p.add_argument("--provider", help="Configured provider name")
+    task_p.add_argument("--model", help="Model identifier")
+    task_p.add_argument("--yes", action="store_true", help="Skip context approval")
 
     sub.add_parser("providers", help="List configured providers")
     sub.add_parser("ui", help="Open the interactive terminal dashboard")
@@ -134,11 +180,18 @@ def main() -> None:
             parser.error(message)
         except (ValueError, OSError, httpx.RequestError) as error:
             parser.error(str(error))
+    elif args.command == "task":
+        try:
+            _task(args.provider, args.model, " ".join(args.message), args.files, args.yes)
+        except httpx.HTTPStatusError as error:
+            parser.error(f"Provider request failed ({error.response.status_code}): {error.response.text}")
+        except (ValueError, OSError) as error:
+            parser.error(str(error))
     elif args.command == "providers":
         names = provider_names()
         print("\n".join(names) if names else "No providers configured.")
     elif args.command == "ui":
-        run_ui(_chat)
+        run_ui(_chat, lambda task: _task(None, None, task, None))
     elif args.command in {"inspect", "doctor"}:
         report = inspect_workspace()
         print(f"Workspace: {report.root}")
@@ -201,4 +254,4 @@ def main() -> None:
         save_config(config)
         print(f"Configuration saved to ~/.fiaca.yml for '{args.provider}'.")
     else:
-        run_ui(_chat)
+        run_ui(_chat, lambda task: _task(None, None, task, None))
