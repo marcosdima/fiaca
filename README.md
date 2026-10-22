@@ -210,6 +210,18 @@ Tasks are read-only. Fiaca does not modify files or execute commands. The task,
 selected context, and provider response are stored in the local session
 database. The dashboard exposes the same flow as `[7] New read-only task`.
 
+For a concrete implementation proposal, add `--plan`:
+
+```bash
+fiaca task --plan \
+  --file src/fiaca/ui.py \
+  "Implement the approved visual direction for the terminal UI."
+```
+
+Planning mode identifies the smallest files and symbols to change, explains
+the intended edits, risks, and validation, and stops before producing or
+applying a patch. It is the approval boundary before write access is added.
+
 Read-only task responses are requested in a structured format:
 
 ```text

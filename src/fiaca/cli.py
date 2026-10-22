@@ -96,6 +96,7 @@ def _task(
     selected_files: list[str] | None,
     approved: bool = False,
     session_id: str | None = None,
+    planning: bool = False,
 ) -> None:
     if session_id:
         with SessionStore() as store:
@@ -112,6 +113,7 @@ def _task(
         details = json.loads(context_action["details"])
         task = str(details["task"])
         selected_files = list(details["files"])
+        planning = bool(details.get("planning", False))
         provider_name = session["provider"]
         model = model or session["model"]
         approved = True
@@ -119,7 +121,7 @@ def _task(
         raise ValueError("A task message is required unless --session is provided.")
     provider = get_provider(provider_name)
     context = build_context(Path.cwd(), task, selected_files)
-    print("Read-only task")
+    print("Read-only implementation plan" if planning else "Read-only task")
     print(f"Workspace: {context.workspace}")
     print("Selected files:")
     for path in context.file_names:
@@ -133,7 +135,12 @@ def _task(
                 str(context.workspace), provider.name, model or provider.default_model, task
             )
             details = json.dumps(
-                {"task": task, "files": context.file_names, "mode": "read-only"}
+                {
+                    "task": task,
+                    "files": context.file_names,
+                    "mode": "planning" if planning else "read-only",
+                    "planning": planning,
+                }
             )
             store.add_action(session_id, "context_built", details)
             store.add_message(session_id, "user", task)
@@ -142,7 +149,7 @@ def _task(
         print(f"Session: {session_id}\nSending...")
         try:
             answer = provider.complete(
-                [{"role": "user", "content": context.as_prompt(task)}], model=model
+                [{"role": "user", "content": context.as_prompt(task, planning)}], model=model
             )
         except httpx.TimeoutException as error:
             raise ValueError("The provider request timed out. The session was saved.") from error
@@ -170,6 +177,11 @@ def main() -> None:
     task_p.add_argument("--model", help="Model identifier")
     task_p.add_argument("--yes", action="store_true", help="Skip context approval")
     task_p.add_argument("--session", help="Resume a saved read-only task")
+    task_p.add_argument(
+        "--plan",
+        action="store_true",
+        help="Request a concrete implementation plan without modifying files",
+    )
 
     sub.add_parser("providers", help="List configured providers")
     sub.add_parser("ui", help="Open the interactive terminal dashboard")
@@ -216,6 +228,7 @@ def main() -> None:
                 args.files,
                 args.yes,
                 args.session,
+                args.plan,
             )
         except httpx.HTTPStatusError as error:
             parser.error(f"Provider request failed ({error.response.status_code}): {error.response.text}")

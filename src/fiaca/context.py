@@ -58,12 +58,22 @@ class WorkspaceContext:
     def file_names(self) -> list[str]:
         return [path for path, _ in self.files]
 
-    def as_prompt(self, task: str) -> str:
+    def as_prompt(self, task: str, planning: bool = False) -> str:
+        instructions = STRUCTURED_TASK_INSTRUCTIONS
+        if planning:
+            instructions += """
+
+Planning mode:
+- Produce an implementation proposal, not a general design discussion.
+- Identify the smallest concrete set of file changes.
+- Describe the intended edits by file and symbol without writing a patch yet.
+- Include a clear approval boundary: no files may be modified in this task.
+"""
         sections = [
             "You are analyzing a local software workspace through Fiaca.",
             "This is a read-only task. Do not claim to have changed files or run commands.",
             "Base your answer on the supplied evidence and state uncertainty explicitly.",
-            STRUCTURED_TASK_INSTRUCTIONS,
+            instructions,
             f"Workspace: {self.workspace}",
             f"Workspace summary:\n{self.summary}",
             f"User task:\n{task}",
