@@ -145,6 +145,29 @@ def _task(task_handler: Callable[[str, bool], None]) -> None:
         task_handler(task, False)
 
 
+def _cleanup() -> None:
+    with SessionStore() as store:
+        sessions = store.list_sessions(limit=1_000_000)
+        if not sessions:
+            console.print("[dim]No saved sessions to clean up.[/dim]")
+            return
+        console.print(
+            Panel(
+                f"This permanently deletes {len(sessions)} saved session(s), "
+                "including their messages and internal tool history.\n"
+                "Provider configuration and API keys are not affected.",
+                title="Clear local history",
+                border_style="yellow",
+            )
+        )
+        answer = console.input("Type DELETE to continue, or press Enter to cancel: ").strip()
+        if answer != "DELETE":
+            console.print("[dim]Cleanup cancelled.[/dim]")
+            return
+        deleted = store.clear_sessions()
+    console.print(f"[green]Deleted {deleted} saved session(s) and reclaimed local storage.[/green]")
+
+
 def run_ui(
     chat_handler: Callable[
         [str | None, str | None, str | None, str | None], None
@@ -166,6 +189,7 @@ def run_ui(
                     "[1] Inspect workspace   [2] List files   [3] Read file\n"
                     "[4] Search files        [5] Sessions      [6] Chat\n"
                     "[7] New read-only task\n"
+                    "[8] Clear local history\n"
                     "[r] Refresh             [q] Quit"
                 ),
                 title="Actions",
@@ -202,6 +226,9 @@ def run_ui(
                     console.input("\nPress Enter to return...")
                 else:
                     _task(task_handler)
+            elif choice == "8":
+                _cleanup()
+                console.input("\nPress Enter to return...")
             elif choice in {"q", "quit", "exit"}:
                 return
         except httpx.HTTPStatusError as error:

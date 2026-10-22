@@ -200,6 +200,12 @@ def main() -> None:
     history_p.add_argument("session_id")
     search_p = sub.add_parser("search", help="Search saved messages")
     search_p.add_argument("query")
+    cleanup_p = sub.add_parser(
+        "cleanup", help="Delete all local sessions and reclaim their storage"
+    )
+    cleanup_p.add_argument(
+        "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
     config_p = sub.add_parser("config", help="Create or update the configuration")
     config_p.add_argument("--provider", default="openrouter")
     config_p.add_argument("--model", default="openrouter/free")
@@ -294,6 +300,19 @@ def main() -> None:
         for result in results:
             excerpt = " ".join(result["content"].split())
             print(f"{result['session_id']}  [{result['role']}]  {excerpt}")
+    elif args.command == "cleanup":
+        with SessionStore() as store:
+            sessions = store.list_sessions(limit=1_000_000)
+            if not args.yes:
+                answer = input(
+                    f"This will permanently delete {len(sessions)} saved session(s). "
+                    "Continue? [y/N] "
+                ).strip().lower()
+                if answer != "y":
+                    print("Cleanup cancelled.")
+                    return
+            deleted = store.clear_sessions()
+        print(f"Deleted {deleted} saved session(s) and reclaimed local storage.")
     elif args.command == "config":
         config = load_config()
         providers = config.setdefault("providers", {})

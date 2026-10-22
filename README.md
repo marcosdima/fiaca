@@ -183,6 +183,17 @@ fiaca history <session-id>
 fiaca search "provider authentication"
 ```
 
+To permanently delete all locally saved sessions, messages, and internal tool
+history, use:
+
+```bash
+fiaca cleanup
+```
+
+Fiaca asks for confirmation before deleting anything. For a deliberate reset
+without an interactive prompt, use `fiaca cleanup --yes`. This does not remove
+provider configuration or API keys from `.env`.
+
 The database contains messages and action records, but never API keys. The
 common message structure is documented in
 [`docs/MESSAGE_PATTERN.md`](docs/MESSAGE_PATTERN.md).

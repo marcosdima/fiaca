@@ -163,6 +163,15 @@ class SessionStore:
         )
         return [dict(row) for row in cursor.fetchall()]
 
+    def clear_sessions(self) -> int:
+        """Delete all local conversation data and reclaim the SQLite space."""
+        count = int(self.connection.execute("SELECT COUNT(*) FROM sessions").fetchone()[0])
+        self.connection.execute("DELETE FROM messages_fts")
+        self.connection.execute("DELETE FROM sessions")
+        self.connection.commit()
+        self.connection.execute("VACUUM")
+        return count
+
     def close(self) -> None:
         self.connection.close()
 
