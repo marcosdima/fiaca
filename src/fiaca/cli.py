@@ -7,6 +7,7 @@ from pathlib import Path
 from .config import load_config, save_config
 from .input import create_prompt_session, read_message
 from .providers import get_provider, provider_names
+from .rendering import print_markdown
 from .storage import SessionStore
 from .ui import run_ui
 from .workspace import inspect_workspace, list_files, read_file, search_files
@@ -81,7 +82,8 @@ def _chat(
                     continue
                 messages.append({"role": "assistant", "content": answer})
                 store.add_message(session_id, "assistant", answer)
-                print(f"\nai> {answer}")
+                print()
+                print_markdown(answer, title="ai")
             prompt = None
 
 
@@ -104,6 +106,7 @@ def main() -> None:
     files_p.add_argument("--limit", type=int, default=200)
     read_p = sub.add_parser("read", help="Read a text file in the current workspace")
     read_p.add_argument("path")
+    read_p.add_argument("--markdown", action="store_true", help="Render the file as Markdown")
     find_p = sub.add_parser("find", help="Search readable text files in the current workspace")
     find_p.add_argument("pattern")
     find_p.add_argument("--limit", type=int, default=50)
@@ -154,7 +157,11 @@ def main() -> None:
         for path in list_files(Path.cwd(), limit=args.limit):
             print(path)
     elif args.command == "read":
-        print(read_file(Path.cwd(), args.path), end="")
+        content = read_file(Path.cwd(), args.path)
+        if args.markdown or Path(args.path).suffix.lower() in {".md", ".markdown"}:
+            print_markdown(content, title=args.path)
+        else:
+            print(content, end="")
     elif args.command == "find":
         for path, line_number, line in search_files(Path.cwd(), args.pattern, limit=args.limit):
             print(f"{path}:{line_number}:{line}")
@@ -171,7 +178,11 @@ def main() -> None:
         if not messages:
             parser.error(f"Session not found or contains no messages: {args.session_id}")
         for message in messages:
-            print(f"\n[{message['role']}] {message['created_at']}\n{message['content']}")
+            print(f"\n[{message['role']}] {message['created_at']}")
+            if message["role"] == "assistant":
+                print_markdown(message["content"])
+            else:
+                print(message["content"])
     elif args.command == "search":
         with SessionStore() as store:
             results = store.search(args.query)

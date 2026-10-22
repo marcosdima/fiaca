@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+from rich.markdown import Markdown
 
 from .config import load_config
 from .providers import provider_names
@@ -54,7 +55,10 @@ def _read_file() -> None:
     if not path:
         return
     content = read_file(Path.cwd(), path)
-    console.print(Panel(content, title=path, border_style="green"))
+    if Path(path).suffix.lower() in {".md", ".markdown"}:
+        console.print(Panel(Markdown(content), title=path, border_style="green"))
+    else:
+        console.print(Panel(content, title=path, border_style="green"))
 
 
 def _search() -> None:

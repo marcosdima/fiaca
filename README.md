@@ -13,6 +13,7 @@ patches, and running commands) behind explicit permissions.
 - Read-only workspace inspection with Git and validation command detection.
 - Interactive terminal dashboard for inspecting the current project.
 - Paste-friendly multiline chat input with an explicit submit shortcut.
+- Rich Markdown rendering for assistant responses and Markdown documents.
 - Providers compatible with the OpenAI chat API (OpenRouter, Groq, Together,
   Cerebras, and local servers such as Ollama).
 - Credentials loaded from environment variables or a local `.env` file.
@@ -155,6 +156,17 @@ fiaca files
 fiaca read src/fiaca/workspace.py
 fiaca find "SessionStore"
 ```
+
+Markdown files are rendered automatically:
+
+```bash
+fiaca read README.md
+fiaca read docs/MESSAGE_PATTERN.md --markdown
+```
+
+Assistant responses and assistant messages in session history use the same
+renderer, so headings, lists, code blocks, tables, emphasis, and links remain
+readable in the terminal.
 
 The tools reject paths outside the workspace, sensitive files such as `.env`,
 ignored dependency directories, binary files, and files larger than the read
