@@ -2,7 +2,10 @@
 
 ## Current phase
 
-Stabilize the focused conversation experience:
+Stabilize the focused conversation experience. The baseline safety tests and
+the first internal read-only tool registry are now in place. The remaining
+work in this phase is to route conversation requests through the registry and
+persist structured activity consistently.
 
 1. simplify the dashboard to Chat, Sessions, Settings, and cleanup;
 2. keep existing read-only tools available internally and through compatibility
@@ -10,6 +13,18 @@ Stabilize the focused conversation experience:
 3. unify chat and read-only task sessions;
 4. show structured tool activity in the conversation;
 5. preserve explicit context and approval boundaries.
+
+Completed foundations:
+
+- workspace safety regression tests;
+- explicit read-only tool result contract;
+- shared registry for inspection, listing, reading, searching, and context
+  building;
+- compatibility commands routed through the registry.
+- read-only task activity records for context completion, approval, and
+  provider request outcomes.
+- explicit read-only tool commands available inside interactive chat;
+- task sessions resumable through the normal chat entry point.
 
 ## Next phase
 

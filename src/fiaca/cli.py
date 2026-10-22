@@ -1,18 +1,18 @@
 import argparse
-import httpx
+import json
 import os
 import sys
-import json
 from pathlib import Path
 
+import httpx
+
 from .config import load_config, save_config
-from .context import build_context
 from .input import create_prompt_session, read_message
 from .providers import get_provider, provider_names
 from .rendering import print_markdown
 from .storage import SessionStore
+from .tools import execute_tool
 from .ui import run_ui
-from .workspace import inspect_workspace, list_files, read_file, search_files
 
 
 def _chat(
@@ -50,10 +50,7 @@ def _chat(
             )
             messages = []
             print(f"Session: {session_id}")
-        if prompt:
-            messages.append({"role": "user", "content": prompt})
-            store.add_message(session_id, "user", prompt)
-        else:
+        if not prompt:
             print(f"Connected to {provider.name}. Type /exit to quit.")
         prompt_session = create_prompt_session()
         while True:
@@ -64,6 +61,22 @@ def _chat(
                     continue
             if prompt in {"/exit", "/quit"}:
                 return
+            if prompt.startswith("/"):
+                try:
+                    handled = _chat_tool_command(prompt, session_id, provider.name, model)
+                except (ValueError, OSError) as error:
+                    print(f"Tool failed: {error}", file=sys.stderr)
+                    handled = True
+                if handled:
+                    if prompt.startswith("/task "):
+                        with SessionStore() as refreshed_store:
+                            messages = [
+                                {"role": message["role"], "content": message["content"]}
+                                for message in refreshed_store.get_messages(session_id)
+                                if message["role"] in {"user", "assistant"}
+                            ]
+                    prompt = None
+                    continue
             if prompt:
                 messages.append({"role": "user", "content": prompt})
                 store.add_message(session_id, "user", prompt)
@@ -89,6 +102,91 @@ def _chat(
             prompt = None
 
 
+def _chat_tool_command(prompt: str, session_id: str, provider_name: str, model: str | None) -> bool:
+    """Run an explicit read-only tool command from an interactive chat."""
+    command, _, argument = prompt.partition(" ")
+    root = Path.cwd()
+    if command == "/help":
+        print("Read-only tools: /inspect, /files, /read <path>, /find <regex>, /task <request>")
+        print("Conversation: /exit or /quit")
+        return True
+    if command == "/inspect":
+        result = execute_tool("inspect_workspace", root).result
+        print(f"Workspace: {result.root}")
+        print(f"Git branch: {result.git_branch or 'not a Git repository'}")
+        print(f"Modified files: {len(result.git_status)}")
+        print(f"Validation commands: {', '.join(result.validation_commands) or 'none'}")
+        with SessionStore() as store:
+            store.add_action(
+                session_id,
+                "tool_completed",
+                json.dumps({"tool": "inspect_workspace", "scope": str(root), "read_only": True}),
+            )
+        return True
+    if command == "/files":
+        limit = int(argument) if argument.isdigit() else 50
+        paths = execute_tool("list_files", root, limit=limit).result
+        print(f"Readable files ({len(paths)} shown):")
+        print("\n".join(f"- {path}" for path in paths))
+        with SessionStore() as store:
+            store.add_action(
+                session_id,
+                "tool_completed",
+                json.dumps(
+                    {"tool": "list_files", "scope": str(root), "read_only": True, "limit": limit}
+                ),
+            )
+        return True
+    if command == "/read":
+        if not argument.strip():
+            raise ValueError("Usage: /read <workspace-relative-path>")
+        content = execute_tool("read_file", root, relative_path=argument.strip()).result
+        print(f"--- {argument.strip()} ---\n{content}", end="" if content.endswith("\n") else "\n")
+        with SessionStore() as store:
+            store.add_action(
+                session_id,
+                "tool_completed",
+                json.dumps(
+                    {
+                        "tool": "read_file",
+                        "scope": str(root),
+                        "read_only": True,
+                        "file": argument.strip(),
+                    }
+                ),
+            )
+        return True
+    if command == "/find":
+        if not argument.strip():
+            raise ValueError("Usage: /find <regular-expression>")
+        results = execute_tool("search_files", root, pattern=argument.strip()).result
+        print(f"Matches ({len(results)} shown):")
+        for path, line_number, line in results:
+            print(f"{path}:{line_number}:{line}")
+        with SessionStore() as store:
+            store.add_action(
+                session_id,
+                "tool_completed",
+                json.dumps(
+                    {
+                        "tool": "search_files",
+                        "scope": str(root),
+                        "read_only": True,
+                        "pattern": argument.strip(),
+                        "matches": len(results),
+                    }
+                ),
+            )
+        return True
+    if command == "/task":
+        if not argument.strip():
+            raise ValueError("Usage: /task <read-only request>")
+        _task(provider_name, model, argument.strip(), None, session_id=session_id)
+        return True
+    print(f"Unknown chat command: {command}. Type /help for available tools.")
+    return True
+
+
 def _task(
     provider_name: str | None,
     model: str | None,
@@ -98,7 +196,8 @@ def _task(
     session_id: str | None = None,
     planning: bool = False,
 ) -> None:
-    if session_id:
+    resuming_task = session_id is not None and not task
+    if resuming_task:
         with SessionStore() as store:
             session = store.get_session(session_id)
             actions = store.get_actions(session_id)
@@ -120,13 +219,17 @@ def _task(
     if not task:
         raise ValueError("A task message is required unless --session is provided.")
     provider = get_provider(provider_name)
-    context = build_context(Path.cwd(), task, selected_files)
+    workspace = Path.cwd()
+    context = execute_tool(
+        "build_context", workspace, task=task, selected_files=selected_files
+    ).result
     print("Read-only implementation plan" if planning else "Read-only task")
     print(f"Workspace: {context.workspace}")
     print("Selected files:")
     for path in context.file_names:
         print(f"  - {path}")
     if not approved and input("Send this context to the provider? [y/N] ").lower() != "y":
+        print("Context approval declined.")
         print("Task cancelled.")
         return
     with SessionStore() as store:
@@ -145,17 +248,74 @@ def _task(
             store.add_action(session_id, "context_built", details)
             store.add_message(session_id, "user", task)
         else:
-            store.add_action(session_id, "task_resumed", json.dumps({"files": context.file_names}))
+            if resuming_task:
+                store.add_action(
+                    session_id, "task_resumed", json.dumps({"files": context.file_names})
+                )
+            else:
+                details = json.dumps(
+                    {
+                        "task": task,
+                        "files": context.file_names,
+                        "mode": "planning" if planning else "read-only",
+                        "planning": planning,
+                    }
+                )
+                store.add_action(session_id, "context_built", details)
+                store.add_message(session_id, "user", task)
+        store.add_action(
+            session_id,
+            "tool_completed",
+            json.dumps(
+                {
+                    "tool": "build_context",
+                    "scope": str(context.workspace),
+                    "read_only": True,
+                    "files": context.file_names,
+                    "bytes": sum(len(content.encode("utf-8")) for _, content in context.files),
+                }
+            ),
+        )
+        store.add_action(
+            session_id,
+            "context_approved",
+            json.dumps({"files": context.file_names, "explicit": not approved}),
+            approved=True,
+        )
+        store.add_action(
+            session_id,
+            "provider_request_started",
+            json.dumps({"provider": provider.name, "model": model or provider.default_model}),
+            approved=True,
+        )
         print(f"Session: {session_id}\nSending...")
         try:
             answer = provider.complete(
                 [{"role": "user", "content": context.as_prompt(task, planning)}], model=model
             )
         except httpx.TimeoutException as error:
+            store.add_action(
+                session_id,
+                "provider_request_failed",
+                json.dumps({"error": "timeout", "message": str(error)}),
+                approved=True,
+            )
             raise ValueError("The provider request timed out. The session was saved.") from error
         except httpx.RequestError as error:
+            store.add_action(
+                session_id,
+                "provider_request_failed",
+                json.dumps({"error": "connection", "message": str(error)}),
+                approved=True,
+            )
             raise ValueError(f"Provider connection failed: {error}") from error
         store.add_message(session_id, "assistant", answer)
+        store.add_action(
+            session_id,
+            "provider_request_completed",
+            json.dumps({"provider": provider.name, "model": model or provider.default_model}),
+            approved=True,
+        )
     print()
     print_markdown(answer, title="ai")
 
@@ -203,9 +363,7 @@ def main() -> None:
     cleanup_p = sub.add_parser(
         "cleanup", help="Delete all local sessions and reclaim their storage"
     )
-    cleanup_p.add_argument(
-        "--yes", action="store_true", help="Skip the confirmation prompt"
-    )
+    cleanup_p.add_argument("--yes", action="store_true", help="Skip the confirmation prompt")
     config_p = sub.add_parser("config", help="Create or update the configuration")
     config_p.add_argument("--provider", default="openrouter")
     config_p.add_argument("--model", default="openrouter/free")
@@ -237,7 +395,9 @@ def main() -> None:
                 args.plan,
             )
         except httpx.HTTPStatusError as error:
-            parser.error(f"Provider request failed ({error.response.status_code}): {error.response.text}")
+            parser.error(
+                f"Provider request failed ({error.response.status_code}): {error.response.text}"
+            )
         except (ValueError, OSError) as error:
             parser.error(str(error))
     elif args.command == "providers":
@@ -247,11 +407,16 @@ def main() -> None:
         run_ui(
             _chat,
             lambda value, resume: _task(
-                None, None, "" if resume else value, None, True, value if resume else None
+                None,
+                None,
+                "" if resume else value,
+                None,
+                resume,
+                value if resume else None,
             ),
         )
     elif args.command in {"inspect", "doctor"}:
-        report = inspect_workspace()
+        report = execute_tool("inspect_workspace", Path.cwd()).result
         print(f"Workspace: {report.root}")
         print(f"Git branch: {report.git_branch or 'not a Git repository'}")
         print(f"Project files: {', '.join(report.project_files) or 'none detected'}")
@@ -265,16 +430,19 @@ def main() -> None:
         else:
             print("No validation commands detected.")
     elif args.command == "files":
-        for path in list_files(Path.cwd(), limit=args.limit):
+        for path in execute_tool("list_files", Path.cwd(), limit=args.limit).result:
             print(path)
     elif args.command == "read":
-        content = read_file(Path.cwd(), args.path)
+        content = execute_tool("read_file", Path.cwd(), relative_path=args.path).result
         if args.markdown or Path(args.path).suffix.lower() in {".md", ".markdown"}:
             print_markdown(content, title=args.path)
         else:
             print(content, end="")
     elif args.command == "find":
-        for path, line_number, line in search_files(Path.cwd(), args.pattern, limit=args.limit):
+        results = execute_tool(
+            "search_files", Path.cwd(), pattern=args.pattern, limit=args.limit
+        ).result
+        for path, line_number, line in results:
             print(f"{path}:{line_number}:{line}")
     elif args.command == "sessions":
         with SessionStore() as store:
@@ -304,10 +472,14 @@ def main() -> None:
         with SessionStore() as store:
             sessions = store.list_sessions(limit=1_000_000)
             if not args.yes:
-                answer = input(
-                    f"This will permanently delete {len(sessions)} saved session(s). "
-                    "Continue? [y/N] "
-                ).strip().lower()
+                answer = (
+                    input(
+                        f"This will permanently delete {len(sessions)} saved session(s). "
+                        "Continue? [y/N] "
+                    )
+                    .strip()
+                    .lower()
+                )
                 if answer != "y":
                     print("Cleanup cancelled.")
                     return

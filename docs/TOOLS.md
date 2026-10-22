@@ -30,11 +30,22 @@ Fiaca: I will inspect the relevant UI files. This is read-only.
 
 The tool result should identify its operation, scope, safety level, and result.
 
+The current implementation provides a shared internal registry for these
+read-only operations. Compatibility commands and dashboard actions use the
+same registry, so their workspace safety rules remain consistent. Context
+building is also represented as a read-only tool and remains separate from
+provider transmission.
+
 ## Approval boundaries
 
 Read-only inspection can be automatic when the scope is clear. Sending a
 selected workspace context to an external provider should remain visible and,
 when appropriate, require approval.
+
+Read-only task sessions record structured activity for context completion,
+context approval, provider request start, provider completion, and provider
+failure. A failed or cancelled operation must not be represented as a
+successful result.
 
 File writes, patch application, and command execution are future capabilities.
 They require separate approval design and must not be smuggled into a

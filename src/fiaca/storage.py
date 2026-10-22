@@ -60,9 +60,7 @@ class SessionStore:
         )
         self.connection.commit()
 
-    def create_session(
-        self, workspace: str, provider: str, model: str | None, title: str
-    ) -> str:
+    def create_session(self, workspace: str, provider: str, model: str | None, title: str) -> str:
         session_id = uuid.uuid4().hex[:12]
         timestamp = _now()
         self.connection.execute(

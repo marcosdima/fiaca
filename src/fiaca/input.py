@@ -4,7 +4,6 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.styles import Style
 
-
 _style = Style.from_dict(
     {
         "prompt": "bold ansicyan",
@@ -33,10 +32,7 @@ def create_prompt_session() -> PromptSession[str]:
         key_bindings=bindings,
         style=_style,
         prompt_continuation="... ",
-        bottom_toolbar=(
-            "Enter: send  |  Alt-Enter: new line  |  "
-            "Ctrl-C: cancel  |  /exit: quit"
-        ),
+        bottom_toolbar=("Enter: send  |  Alt-Enter: new line  |  Ctrl-C: cancel  |  /exit: quit"),
     )
 
 

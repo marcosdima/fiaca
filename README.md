@@ -32,6 +32,22 @@ uv sync
 source .venv/bin/activate
 ```
 
+## Lint and formatting
+
+Fiaca uses [Ruff](https://docs.astral.sh/ruff/) for Python linting and
+formatting:
+
+```bash
+uv run ruff check src tests
+uv run ruff format --check src tests
+```
+
+To format files locally:
+
+```bash
+uv run ruff format src tests
+```
+
 ## Local API keys with `.env`
 
 The recommended setup for local development is to copy `.env.example` to
@@ -83,6 +99,20 @@ precedence over values from `.env`.
 
    ```bash
    fiaca chat "Explain this Python error"
+
+   Interactive chat also supports explicit read-only workspace tools:
+
+   ```text
+   /help
+   /inspect
+   /files
+   /read src/fiaca/ui.py
+   /find SessionStore
+   /task Review the current UI and suggest improvements
+   ```
+
+   These commands do not write files or execute commands. Tool activity is
+   recorded in the saved session.
    ```
 
 ## Add another compatible provider

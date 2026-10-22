@@ -26,6 +26,21 @@ uv run fiaca chat
 Use `Enter` to send, `Alt-Enter` for a new line, `Ctrl-C` to cancel a draft,
 and `/exit` or `Ctrl-D` to leave the conversation.
 
+During an interactive chat, explicit read-only workspace tools are available:
+
+```text
+/help
+/inspect
+/files
+/read src/fiaca/ui.py
+/find SessionStore
+/task Review the current UI and suggest improvements
+```
+
+Tool commands show their result immediately and record the operation in the
+session activity. They do not modify files or execute commands. Unknown slash
+commands are rejected locally instead of being sent to the provider.
+
 ## Continue a session
 
 ```bash
@@ -35,8 +50,8 @@ uv run fiaca chat --session <session-id>
 
 The dashboard also lists sessions with numbered selection. Chat sessions resume
 as interactive conversations. Read-only task sessions currently re-run their
-original request and context; this is an internal compatibility behavior that
-will be unified with chat follow-ups.
+original request and context for compatibility, and can now be continued
+through the same interactive chat flow.
 
 ## Workspace tools
 

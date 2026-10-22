@@ -5,7 +5,6 @@ from pathlib import Path
 
 from .workspace import MAX_READ_BYTES, inspect_workspace, read_file
 
-
 DEFAULT_CONTEXT_FILES = (
     "README.md",
     "pyproject.toml",
@@ -84,7 +83,9 @@ Planning mode:
         return "\n".join(sections)
 
 
-def build_context(root: Path, task: str, selected_files: list[str] | None = None) -> WorkspaceContext:
+def build_context(
+    root: Path, task: str, selected_files: list[str] | None = None
+) -> WorkspaceContext:
     workspace = root.expanduser().resolve()
     report = inspect_workspace(workspace)
     candidates = selected_files or [

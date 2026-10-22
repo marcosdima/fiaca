@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-import re
-
 
 IGNORED_DIRECTORIES = {
     ".git",
@@ -105,9 +104,12 @@ def list_files(root: Path, limit: int = 200) -> list[str]:
     paths: list[str] = []
     for path in sorted(workspace.rglob("*")):
         relative = path.relative_to(workspace)
-        if path.is_file() and not any(part in IGNORED_DIRECTORIES for part in relative.parts):
-            if path.name not in SENSITIVE_NAMES:
-                paths.append(relative.as_posix())
+        if (
+            path.is_file()
+            and not any(part in IGNORED_DIRECTORIES for part in relative.parts)
+            and path.name not in SENSITIVE_NAMES
+        ):
+            paths.append(relative.as_posix())
         if len(paths) >= limit:
             break
     return paths
@@ -118,7 +120,9 @@ def read_file(root: Path, relative_path: str) -> str:
     if not path.is_file():
         raise ValueError(f"File does not exist: {relative_path}")
     if path.stat().st_size > MAX_READ_BYTES:
-        raise ValueError(f"File is larger than the {MAX_READ_BYTES} byte read limit: {relative_path}")
+        raise ValueError(
+            f"File is larger than the {MAX_READ_BYTES} byte read limit: {relative_path}"
+        )
     try:
         return path.read_text(encoding="utf-8")
     except UnicodeDecodeError as error:
