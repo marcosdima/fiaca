@@ -1,6 +1,7 @@
 import argparse
 import httpx
 import os
+import sys
 from pathlib import Path
 
 from .config import load_config, save_config
@@ -63,7 +64,21 @@ def _chat(
             if prompt:
                 messages.append({"role": "user", "content": prompt})
                 store.add_message(session_id, "user", prompt)
-                answer = provider.complete(messages, model=model)
+                print("Sending...", flush=True)
+                try:
+                    answer = provider.complete(messages, model=model)
+                except httpx.TimeoutException:
+                    print(
+                        "The provider request timed out. Check the model availability "
+                        "or try again.",
+                        file=sys.stderr,
+                    )
+                    prompt = None
+                    continue
+                except httpx.RequestError as error:
+                    print(f"Provider connection failed: {error}", file=sys.stderr)
+                    prompt = None
+                    continue
                 messages.append({"role": "assistant", "content": answer})
                 store.add_message(session_id, "assistant", answer)
                 print(f"\nai> {answer}")

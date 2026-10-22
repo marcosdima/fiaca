@@ -73,6 +73,10 @@ precedence over values from `.env`.
    the session. This makes it possible to paste prompts, code, errors, and
    structured requests without fighting the terminal.
 
+   After submission, Fiaca displays `Sending...` while waiting for the
+   provider. Network timeouts and connection failures are reported as
+   recoverable messages so the session remains usable.
+
    Or send a one-off prompt:
 
    ```bash

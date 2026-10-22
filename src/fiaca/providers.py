@@ -35,7 +35,7 @@ class Provider:
                 "messages": messages,
                 "temperature": temperature,
             },
-            timeout=120,
+            timeout=httpx.Timeout(60.0, connect=10.0),
         )
         response.raise_for_status()
         data: dict[str, Any] = response.json()

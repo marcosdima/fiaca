@@ -16,7 +16,7 @@ _style = Style.from_dict(
 def create_prompt_session() -> PromptSession[str]:
     bindings = KeyBindings()
 
-    @bindings.add("enter")
+    @bindings.add("enter", eager=True)
     def submit(event: KeyPressEvent) -> None:
         event.current_buffer.validate_and_handle()
 
