@@ -195,8 +195,7 @@ without an interactive prompt, use `fiaca cleanup --yes`. This does not remove
 provider configuration or API keys from `.env`.
 
 The database contains messages and action records, but never API keys. The
-common message structure is documented in
-[`docs/MESSAGE_PATTERN.md`](docs/MESSAGE_PATTERN.md).
+documentation is organized by topic in [`docs/README.md`](docs/README.md).
 
 ## Read-only tasks
 
@@ -258,6 +257,12 @@ fiaca task --session <session-id>
 From the dashboard, open the session under `[5] Sessions` and choose `c`.
 
 ## Next direction
+
+Fiaca is being simplified around conversations and saved sessions. Tasks,
+file reads, searches, and planning are becoming internal conversation tools
+rather than separate primary sections. See the [documentation index](docs/README.md)
+for the product direction, architecture, session lifecycle, tool boundaries,
+security rules, and roadmap.
 
 The next increment should be read-only file tools and agent mode, not more
 provider options:
