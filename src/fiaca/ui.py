@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from collections.abc import Callable
 
+import httpx
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -88,30 +89,39 @@ def _sessions(
         console.print("[yellow]No saved sessions.[/yellow]")
         return
     table = Table(title="Saved sessions", expand=True)
+    table.add_column("#", justify="right", style="blue", no_wrap=True)
     table.add_column("ID", style="cyan", no_wrap=True)
     table.add_column("Updated", no_wrap=True)
     table.add_column("Provider")
     table.add_column("Title")
-    for session in sessions:
+    for index, session in enumerate(sessions, 1):
         table.add_row(
+            str(index),
             session["id"], session["updated_at"], session["provider"], session["title"]
         )
     console.print(table)
-    session_id = console.input(
-        "\nEnter a session ID to open, or press Enter to return: "
+    selection = console.input(
+        "\nEnter a session number or ID to open, or press Enter to return: "
     ).strip()
-    if not session_id:
+    if not selection:
         return
+    if selection.isdigit() and 1 <= int(selection) <= len(sessions):
+        session_id = sessions[int(selection) - 1]["id"]
+    else:
+        session_id = selection
     with SessionStore() as store:
         session = store.get_session(session_id)
         messages = store.get_messages(session_id) if session else []
         actions = store.get_actions(session_id) if session else []
     if session is None:
         raise ValueError(f"Session not found: {session_id}")
-    history = "\n\n".join(
-        f"[{message['role']}] {message['content']}" for message in messages
-    )
-    console.print(Panel(history or "No messages in this session.", title=session["title"]))
+    console.print(Panel(session["title"], title=f"Session {session_id}", border_style="cyan"))
+    for message in messages:
+        console.print(f"\n[bold]{message['role']}[/bold] [dim]{message['created_at']}[/dim]")
+        if message["role"] == "assistant":
+            console.print(Markdown(message["content"]))
+        else:
+            console.print(message["content"])
     action = console.input("\n[c] Continue  [b] Back: ").strip().lower()
     if action == "c":
         is_task = any(item["action_type"] == "context_built" for item in actions)
@@ -186,6 +196,12 @@ def run_ui(
                     _task(task_handler)
             elif choice in {"q", "quit", "exit"}:
                 return
-        except (OSError, ValueError) as error:
+        except httpx.HTTPStatusError as error:
+            console.print(
+                f"[red]Provider request failed ({error.response.status_code}): "
+                f"{error.response.text.strip()}[/red]"
+            )
+            console.input("\nPress Enter to return...")
+        except (OSError, ValueError, httpx.RequestError) as error:
             console.print(f"[red]Error: {error}[/red]")
             console.input("\nPress Enter to return...")
