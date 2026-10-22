@@ -210,6 +210,22 @@ Tasks are read-only. Fiaca does not modify files or execute commands. The task,
 selected context, and provider response are stored in the local session
 database. The dashboard exposes the same flow as `[7] New read-only task`.
 
+Read-only task responses are requested in a structured format:
+
+```text
+Understanding:
+Evidence:
+Plan:
+Files to change:
+Risks:
+Validation:
+Recommendations:
+```
+
+Fiaca also asks the provider to cite concrete files and symbols, distinguish
+facts from assumptions, avoid generic unsupported claims, and not pretend to
+have run commands or changed files.
+
 To retry a saved task with its original files and provider:
 
 ```bash

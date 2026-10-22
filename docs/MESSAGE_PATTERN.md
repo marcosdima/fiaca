@@ -4,6 +4,9 @@ Fiaca uses a project-independent message pattern for requests, plans, and
 execution results. The pattern is intended to be reusable in any software
 project, regardless of language, framework, or provider.
 
+Read-only task responses use the same structure so that an analysis can be
+reviewed before any implementation is considered.
+
 ## Message envelope
 
 Every meaningful project message should make these parts explicit:

@@ -14,6 +14,38 @@ DEFAULT_CONTEXT_FILES = (
     "docs/MESSAGE_PATTERN.md",
 )
 MAX_CONTEXT_BYTES = 120_000
+STRUCTURED_TASK_INSTRUCTIONS = """Respond using this exact structure:
+
+Understanding:
+  Restate the requested outcome and important boundaries.
+
+Evidence:
+  List observed facts from the supplied files. Cite concrete file paths and
+  symbols or line areas when possible. Separate facts from assumptions.
+
+Plan:
+  Give the smallest prioritized and ordered plan. Do not implement it.
+
+Files to change:
+  List likely files and explain why. If no changes are requested, say
+  "None - analysis only."
+
+Risks:
+  State compatibility, safety, uncertainty, and scope risks.
+
+Validation:
+  Describe how the proposal would be verified. Do not run commands.
+
+Recommendations:
+  Give the final prioritized recommendations and relevant trade-offs.
+
+Rules:
+- This is read-only analysis. Do not claim to have modified files or run commands.
+- Base conclusions on the supplied evidence.
+- Do not invent files, symbols, test results, or capabilities.
+- Keep observed facts, assumptions, and recommendations distinct.
+- Prefer concrete, actionable details over generic advice.
+"""
 
 
 @dataclass(frozen=True)
@@ -31,6 +63,7 @@ class WorkspaceContext:
             "You are analyzing a local software workspace through Fiaca.",
             "This is a read-only task. Do not claim to have changed files or run commands.",
             "Base your answer on the supplied evidence and state uncertainty explicitly.",
+            STRUCTURED_TASK_INSTRUCTIONS,
             f"Workspace: {self.workspace}",
             f"Workspace summary:\n{self.summary}",
             f"User task:\n{task}",
