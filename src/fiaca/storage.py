@@ -108,6 +108,16 @@ class SessionStore:
         self.connection.commit()
         return int(cursor.lastrowid)
 
+    def get_actions(self, session_id: str) -> list[sqlite3.Row]:
+        cursor = self.connection.execute(
+            """
+            SELECT action_type, details, approved, created_at FROM actions
+            WHERE session_id = ? ORDER BY id
+            """,
+            (session_id,),
+        )
+        return list(cursor.fetchall())
+
     def list_sessions(self, limit: int = 20) -> list[sqlite3.Row]:
         cursor = self.connection.execute(
             """

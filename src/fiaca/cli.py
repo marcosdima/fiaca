@@ -95,7 +95,28 @@ def _task(
     task: str,
     selected_files: list[str] | None,
     approved: bool = False,
+    session_id: str | None = None,
 ) -> None:
+    if session_id:
+        with SessionStore() as store:
+            session = store.get_session(session_id)
+            actions = store.get_actions(session_id)
+        if session is None:
+            raise ValueError(f"Session not found: {session_id}")
+        context_action = next(
+            (action for action in actions if action["action_type"] == "context_built"),
+            None,
+        )
+        if context_action is None:
+            raise ValueError(f"Session is not a read-only task: {session_id}")
+        details = json.loads(context_action["details"])
+        task = str(details["task"])
+        selected_files = list(details["files"])
+        provider_name = session["provider"]
+        model = model or session["model"]
+        approved = True
+    if not task:
+        raise ValueError("A task message is required unless --session is provided.")
     provider = get_provider(provider_name)
     context = build_context(Path.cwd(), task, selected_files)
     print("Read-only task")
@@ -107,12 +128,17 @@ def _task(
         print("Task cancelled.")
         return
     with SessionStore() as store:
-        session_id = store.create_session(
-            str(context.workspace), provider.name, model or provider.default_model, task
-        )
-        details = json.dumps({"task": task, "files": context.file_names, "mode": "read-only"})
-        store.add_action(session_id, "context_built", details)
-        store.add_message(session_id, "user", task)
+        if not session_id:
+            session_id = store.create_session(
+                str(context.workspace), provider.name, model or provider.default_model, task
+            )
+            details = json.dumps(
+                {"task": task, "files": context.file_names, "mode": "read-only"}
+            )
+            store.add_action(session_id, "context_built", details)
+            store.add_message(session_id, "user", task)
+        else:
+            store.add_action(session_id, "task_resumed", json.dumps({"files": context.file_names}))
         print(f"Session: {session_id}\nSending...")
         try:
             answer = provider.complete(
@@ -138,11 +164,12 @@ def main() -> None:
     chat_p.add_argument("--model", help="Model identifier")
     chat_p.add_argument("--session", help="Resume a saved session")
     task_p = sub.add_parser("task", help="Run a read-only task with workspace context")
-    task_p.add_argument("message", nargs="+", help="Task to send to the AI")
+    task_p.add_argument("message", nargs="*", help="Task to send to the AI")
     task_p.add_argument("--file", action="append", dest="files", help="File to include")
     task_p.add_argument("--provider", help="Configured provider name")
     task_p.add_argument("--model", help="Model identifier")
     task_p.add_argument("--yes", action="store_true", help="Skip context approval")
+    task_p.add_argument("--session", help="Resume a saved read-only task")
 
     sub.add_parser("providers", help="List configured providers")
     sub.add_parser("ui", help="Open the interactive terminal dashboard")
@@ -182,7 +209,14 @@ def main() -> None:
             parser.error(str(error))
     elif args.command == "task":
         try:
-            _task(args.provider, args.model, " ".join(args.message), args.files, args.yes)
+            _task(
+                args.provider,
+                args.model,
+                " ".join(args.message),
+                args.files,
+                args.yes,
+                args.session,
+            )
         except httpx.HTTPStatusError as error:
             parser.error(f"Provider request failed ({error.response.status_code}): {error.response.text}")
         except (ValueError, OSError) as error:
@@ -191,7 +225,12 @@ def main() -> None:
         names = provider_names()
         print("\n".join(names) if names else "No providers configured.")
     elif args.command == "ui":
-        run_ui(_chat, lambda task: _task(None, None, task, None))
+        run_ui(
+            _chat,
+            lambda value, resume: _task(
+                None, None, "" if resume else value, None, True, value if resume else None
+            ),
+        )
     elif args.command in {"inspect", "doctor"}:
         report = inspect_workspace()
         print(f"Workspace: {report.root}")
@@ -254,4 +293,9 @@ def main() -> None:
         save_config(config)
         print(f"Configuration saved to ~/.fiaca.yml for '{args.provider}'.")
     else:
-        run_ui(_chat, lambda task: _task(None, None, task, None))
+        run_ui(
+            _chat,
+            lambda value, resume: _task(
+                None, None, "" if resume else value, None, True, value if resume else None
+            ),
+        )

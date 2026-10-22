@@ -80,6 +80,7 @@ def _search() -> None:
 
 def _sessions(
     chat_handler: Callable[[str | None, str | None, str | None, str | None], None],
+    task_handler: Callable[[str, bool], None] | None = None,
 ) -> None:
     with SessionStore() as store:
         sessions = store.list_sessions()
@@ -104,6 +105,7 @@ def _sessions(
     with SessionStore() as store:
         session = store.get_session(session_id)
         messages = store.get_messages(session_id) if session else []
+        actions = store.get_actions(session_id) if session else []
     if session is None:
         raise ValueError(f"Session not found: {session_id}")
     history = "\n\n".join(
@@ -112,13 +114,17 @@ def _sessions(
     console.print(Panel(history or "No messages in this session.", title=session["title"]))
     action = console.input("\n[c] Continue  [b] Back: ").strip().lower()
     if action == "c":
-        chat_handler(session["provider"], session["model"], None, session_id)
+        is_task = any(item["action_type"] == "context_built" for item in actions)
+        if is_task and task_handler is not None:
+            task_handler(session_id, True)
+        else:
+            chat_handler(session["provider"], session["model"], None, session_id)
 
 
-def _task(task_handler: Callable[[str], None]) -> None:
+def _task(task_handler: Callable[[str, bool], None]) -> None:
     task = console.input("Task (or blank to cancel): ").strip()
     if task:
-        task_handler(task)
+        task_handler(task, False)
 
 
 def run_ui(
@@ -126,7 +132,7 @@ def run_ui(
         [str | None, str | None, str | None, str | None], None
     ]
     | None = None,
-    task_handler: Callable[[str], None] | None = None,
+    task_handler: Callable[[str, bool], None] | None = None,
 ) -> None:
     """Run the interactive terminal dashboard."""
     while True:
@@ -164,7 +170,7 @@ def run_ui(
                 _search()
                 console.input("\nPress Enter to return...")
             elif choice == "5":
-                _sessions(chat_handler)
+                _sessions(chat_handler, task_handler)
                 console.input("\nPress Enter to return...")
             elif choice == "6":
                 if chat_handler is None:

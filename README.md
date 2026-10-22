@@ -210,6 +210,14 @@ Tasks are read-only. Fiaca does not modify files or execute commands. The task,
 selected context, and provider response are stored in the local session
 database. The dashboard exposes the same flow as `[7] New read-only task`.
 
+To retry a saved task with its original files and provider:
+
+```bash
+fiaca task --session <session-id>
+```
+
+From the dashboard, open the session under `[5] Sessions` and choose `c`.
+
 ## Next direction
 
 The next increment should be read-only file tools and agent mode, not more
