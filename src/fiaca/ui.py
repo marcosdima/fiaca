@@ -122,7 +122,15 @@ def _sessions(
             console.print(Markdown(message["content"]))
         else:
             console.print(message["content"])
-    action = console.input("\n[c] Continue  [b] Back: ").strip().lower()
+    console.print(
+        Panel(
+            "Enter c to continue this session.\n"
+            "Enter b to return to the dashboard.",
+            title="Next action",
+            border_style="blue",
+        )
+    )
+    action = console.input(Text("\nChoice: ", style="bold")).strip().lower()
     if action == "c":
         is_task = any(item["action_type"] == "context_built" for item in actions)
         if is_task and task_handler is not None:
