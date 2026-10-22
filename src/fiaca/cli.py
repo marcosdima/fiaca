@@ -6,6 +6,7 @@ from pathlib import Path
 from .config import load_config, save_config
 from .providers import get_provider, provider_names
 from .storage import SessionStore
+from .ui import run_ui
 from .workspace import inspect_workspace, list_files, read_file, search_files
 
 
@@ -53,6 +54,7 @@ def main() -> None:
     chat_p.add_argument("--model", help="Model identifier")
 
     sub.add_parser("providers", help="List configured providers")
+    sub.add_parser("ui", help="Open the interactive terminal dashboard")
     sub.add_parser("inspect", help="Inspect the current workspace")
     sub.add_parser("doctor", help="Check workspace and project validation details")
     files_p = sub.add_parser("files", help="List readable files in the current workspace")
@@ -89,6 +91,8 @@ def main() -> None:
     elif args.command == "providers":
         names = provider_names()
         print("\n".join(names) if names else "No providers configured.")
+    elif args.command == "ui":
+        run_ui(_chat)
     elif args.command in {"inspect", "doctor"}:
         report = inspect_workspace()
         print(f"Workspace: {report.root}")
@@ -143,4 +147,4 @@ def main() -> None:
         save_config(config)
         print(f"Configuration saved to ~/.fiaca.yml for '{args.provider}'.")
     else:
-        parser.print_help()
+        run_ui(_chat)

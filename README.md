@@ -11,6 +11,7 @@ patches, and running commands) behind explicit permissions.
 - Interactive session with conversation history while the process is running.
 - Local SQLite persistence for sessions and messages.
 - Read-only workspace inspection with Git and validation command detection.
+- Interactive terminal dashboard for inspecting the current project.
 - Providers compatible with the OpenAI chat API (OpenRouter, Groq, Together,
   Cerebras, and local servers such as Ollama).
 - Credentials loaded from environment variables or a local `.env` file.
@@ -106,6 +107,19 @@ fiaca providers
 ```
 
 ## Inspect a workspace
+
+Launch the interactive dashboard:
+
+```bash
+fiaca
+# or
+fiaca ui
+```
+
+The dashboard shows the workspace, Git branch, modified file count,
+configured providers, and recent sessions. Its actions currently cover
+read-only inspection, file reading, search, and session browsing. It does not
+apply changes or execute commands.
 
 Run these commands from a project directory:
 
