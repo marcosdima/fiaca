@@ -1,11 +1,12 @@
 import argparse
 import httpx
 import os
+from pathlib import Path
 
 from .config import load_config, save_config
 from .providers import get_provider, provider_names
 from .storage import SessionStore
-from .workspace import inspect_workspace
+from .workspace import inspect_workspace, list_files, read_file, search_files
 
 
 def _chat(provider_name: str | None, model: str | None, prompt: str | None) -> None:
@@ -54,6 +55,13 @@ def main() -> None:
     sub.add_parser("providers", help="List configured providers")
     sub.add_parser("inspect", help="Inspect the current workspace")
     sub.add_parser("doctor", help="Check workspace and project validation details")
+    files_p = sub.add_parser("files", help="List readable files in the current workspace")
+    files_p.add_argument("--limit", type=int, default=200)
+    read_p = sub.add_parser("read", help="Read a text file in the current workspace")
+    read_p.add_argument("path")
+    find_p = sub.add_parser("find", help="Search readable text files in the current workspace")
+    find_p.add_argument("pattern")
+    find_p.add_argument("--limit", type=int, default=50)
     sub.add_parser("sessions", help="List saved chat sessions")
     history_p = sub.add_parser("history", help="Show messages from a saved session")
     history_p.add_argument("session_id")
@@ -95,6 +103,14 @@ def main() -> None:
             print("\n".join(f"- {command}" for command in report.validation_commands))
         else:
             print("No validation commands detected.")
+    elif args.command == "files":
+        for path in list_files(Path.cwd(), limit=args.limit):
+            print(path)
+    elif args.command == "read":
+        print(read_file(Path.cwd(), args.path), end="")
+    elif args.command == "find":
+        for path, line_number, line in search_files(Path.cwd(), args.pattern, limit=args.limit):
+            print(f"{path}:{line_number}:{line}")
     elif args.command == "sessions":
         with SessionStore() as store:
             for session in store.list_sessions():

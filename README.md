@@ -120,6 +120,20 @@ the same workspace checks without printing the full Git status. These commands
 are read-only: they do not execute the detected validation commands or modify
 files.
 
+## Read-only file tools
+
+Fiaca can inspect text files without reading outside the current workspace:
+
+```bash
+fiaca files
+fiaca read src/fiaca/workspace.py
+fiaca find "SessionStore"
+```
+
+The tools reject paths outside the workspace, sensitive files such as `.env`,
+ignored dependency directories, binary files, and files larger than the read
+limit. Search accepts regular expressions and limits its output.
+
 ## Saved sessions and search
 
 Fiaca stores local sessions in `~/.fiaca/sessions.db`:
